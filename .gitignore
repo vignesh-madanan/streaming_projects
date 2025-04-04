@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+src/services/data_generator/data_gen_env/
 # C extensions
 *.so
 
