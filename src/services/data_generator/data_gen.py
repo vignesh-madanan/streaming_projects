@@ -20,6 +20,9 @@ DB_USER = os.getenv('DB_USER', 'postgres')
 DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
 DB_HOST = os.getenv('DB_HOST', 'postgres')
 
+# Kafka environment variables
+KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+
 # Generate user data
 def gen_user_data(num_user_records: int) -> None:
     for id in range(num_user_records):
@@ -128,7 +131,7 @@ def generate_checkout_event(user_id, product_id):
 
 # Function to push the events to a Kafka topic
 def push_to_kafka(event, topic):
-    producer = Producer({'bootstrap.servers': 'kafka:9092'})
+    producer = Producer({'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS})
     producer.produce(topic, json.dumps(event).encode('utf-8'))
     producer.flush()
 
@@ -161,14 +164,14 @@ if __name__ == "__main__":
         "--num_user_records",
         type=int,
         help="Number of user records to generate",
-        default=100,
+        default=10,
     )
     parser.add_argument(
         "-nc",
         "--num_click_records",
         type=int,
         help="Number of click records to generate",
-        default=100000000,
+        default=1000,
     )
     args = parser.parse_args()
     gen_user_data(args.num_user_records)
