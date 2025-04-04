@@ -12,16 +12,32 @@ from faker import Faker
 fake = Faker()
 
 
-load_dotenv()
+load_dotenv('.env')
 
 # Database environment variables
-DB_NAME = os.getenv('DB_NAME', 'postgres')
+DB_NAME = os.getenv('DB_NAME', 'data_generator')
 DB_USER = os.getenv('DB_USER', 'postgres')
 DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
-DB_HOST = os.getenv('DB_HOST', 'postgres')
+DB_HOST = os.getenv('DB_HOST', 'localhost')
 
 # Kafka environment variables
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+
+def create_database():
+    # Create database if it does not exist
+    conn = psycopg2.connect(
+        dbname='postgres',
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+    )
+    conn.autocommit = True  # Set autocommit mode
+    curr = conn.cursor()
+    curr.execute(f"SELECT 1 FROM pg_catalog.pg_database WHERE datname = '{DB_NAME}'")
+    if not curr.fetchone():
+        curr.execute(f"CREATE DATABASE {DB_NAME}")
+    curr.close()
+    conn.close()
 
 # Generate user data
 def gen_user_data(num_user_records: int) -> None:
@@ -34,12 +50,12 @@ def gen_user_data(num_user_records: int) -> None:
         )
         curr = conn.cursor()
         curr.execute(
-            """INSERT INTO commerce.users
+            """INSERT INTO users
              (id, username, password) VALUES (%s, %s, %s)""",
             (id, fake.user_name(), fake.password()),
         )
         curr.execute(
-            """INSERT INTO commerce.products
+            """INSERT INTO products
              (id, name, description, price) VALUES (%s, %s, %s, %s)""",
             (id, fake.name(), fake.text(), fake.random_int(min=1, max=100)),
         )
@@ -48,11 +64,11 @@ def gen_user_data(num_user_records: int) -> None:
         # update 10 % of the time
         if random.randint(1, 100) >= 90:
             curr.execute(
-                "UPDATE commerce.users SET username = %s WHERE id = %s",
+                "UPDATE users SET username = %s WHERE id = %s",
                 (fake.user_name(), id),
             )
             curr.execute(
-                "UPDATE commerce.products SET name = %s WHERE id = %s",
+                "UPDATE products SET name = %s WHERE id = %s",
                 (fake.name(), id),
             )
         conn.commit()
@@ -158,6 +174,7 @@ def gen_clickstream_data(num_click_records: int) -> None:
 
 
 if __name__ == "__main__":
+    create_database()
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-nu",
