@@ -1,0 +1,12 @@
+[project]
+name = "4-streaming-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "confluent-kafka>=2.9.0",
+    "faker>=37.1.0",
+    "psycopg2-binary>=2.9.10",
+    "python-dotenv>=1.1.0",
+]
