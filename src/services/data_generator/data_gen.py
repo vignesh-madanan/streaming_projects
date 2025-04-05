@@ -1,32 +1,34 @@
 import argparse
 import json
+import os
 import random
 from datetime import datetime
 from uuid import uuid4
-import os
-from dotenv import load_dotenv
+
 import psycopg2
 from confluent_kafka import Producer
+from dotenv import load_dotenv
 from faker import Faker
 
 fake = Faker()
 
 
-load_dotenv('.env')
+load_dotenv(".env")
 
 # Database environment variables
-DB_NAME = os.getenv('DB_NAME', 'data_generator')
-DB_USER = os.getenv('DB_USER', 'postgres')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
-DB_HOST = os.getenv('DB_HOST', 'localhost')
+DB_NAME = os.getenv("DB_NAME", "data_generator")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
+DB_HOST = os.getenv("DB_HOST", "localhost")
 
 # Kafka environment variables
-KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+
 
 def create_database():
     # Create database if it does not exist
     conn = psycopg2.connect(
-        dbname='postgres',
+        dbname="postgres",
         user=DB_USER,
         password=DB_PASSWORD,
         host=DB_HOST,
@@ -38,6 +40,7 @@ def create_database():
         curr.execute(f"CREATE DATABASE {DB_NAME}")
     curr.close()
     conn.close()
+
 
 # Generate user data
 def gen_user_data(num_user_records: int) -> None:
@@ -109,9 +112,7 @@ def generate_click_event(user_id, product_id=None):
         "url": url,
         "user_agent": user_agent,
         "ip_address": ip_address,
-        "datetime_occured": datetime_occured.strftime("%Y-%m-%d %H:%M:%S.%f")[
-            :-3
-        ],
+        "datetime_occured": datetime_occured.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
     }
 
     return click_event
@@ -137,9 +138,7 @@ def generate_checkout_event(user_id, product_id):
         "billing_address": billing_address,
         "user_agent": user_agent,
         "ip_address": ip_address,
-        "datetime_occured": datetime_occured.strftime("%Y-%m-%d %H:%M:%S.%f")[
-            :-3
-        ],
+        "datetime_occured": datetime_occured.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
     }
 
     return checkout_event
@@ -147,8 +146,8 @@ def generate_checkout_event(user_id, product_id):
 
 # Function to push the events to a Kafka topic
 def push_to_kafka(event, topic):
-    producer = Producer({'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS})
-    producer.produce(topic, json.dumps(event).encode('utf-8'))
+    producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS})
+    producer.produce(topic, json.dumps(event).encode("utf-8"))
     producer.flush()
 
 
@@ -156,20 +155,18 @@ def gen_clickstream_data(num_click_records: int) -> None:
     for _ in range(num_click_records):
         user_id = random.randint(1, 100)
         click_event = generate_click_event(user_id)
-        push_to_kafka(click_event, 'clicks')
+        push_to_kafka(click_event, "clicks")
 
         # simulate multiple clicks & checkouts 50% of the time
         while random.randint(1, 100) >= 50:
-            click_event = generate_click_event(
-                user_id, click_event['product_id']
-            )
-            push_to_kafka(click_event, 'clicks')
+            click_event = generate_click_event(user_id, click_event["product_id"])
+            push_to_kafka(click_event, "clicks")
 
             push_to_kafka(
                 generate_checkout_event(
                     click_event["user_id"], click_event["product_id"]
                 ),
-                'checkouts',
+                "checkouts",
             )
 
 
@@ -193,3 +190,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     gen_user_data(args.num_user_records)
     gen_clickstream_data(args.num_click_records)
+
