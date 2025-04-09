@@ -1,14 +1,14 @@
-# Streaming_projects
+# Streaming Project
 This projects goal is to create a simulated e-commerce websites backend.
 Use these 3 DBs and create a high fidelity pipeline, to aggregate analysis of the simulation. 
 The purpose is to learn each aspect of the data engineering pipeline.
 
-### Higher level plan:
+# Services
 [ ] DB: Postgres SQL
     [ ] Setup
     [ ] DB creation
     [ ] Dummy/ Fake data generation
-    
+
 [ ] Kafka: messaging queue
     [ ] Setup
 
