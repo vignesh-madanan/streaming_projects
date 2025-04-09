@@ -4,17 +4,19 @@ import os
 import random
 from datetime import datetime
 from uuid import uuid4
-
+from tqdm import tqdm
 import psycopg2
 from confluent_kafka import Producer
 from dotenv import load_dotenv
 from faker import Faker
+import logging
+import concurrent.futures
 
 fake = Faker()
 
 
 load_dotenv(".env")
-
+logging.basicConfig(level=logging.INFO)
 # Database environment variables
 DB_NAME = os.getenv("DB_NAME", "data_generator")
 DB_USER = os.getenv("DB_USER", "postgres")
@@ -24,6 +26,32 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 # Kafka environment variables
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
+def delete_database():
+    # Drop database if it exists
+    conn = psycopg2.connect(
+        dbname="postgres",
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+    )
+    conn.autocommit = True
+    curr = conn.cursor()
+    curr.execute(f"DROP DATABASE IF EXISTS {DB_NAME}")
+    curr.close()
+    conn.close()
+
+def truncate_database():
+    # Truncate commerce.users and commerce.products tables
+    conn = psycopg2.connect(
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+    )
+    curr = conn.cursor()
+    curr.execute("TRUNCATE commerce.users, commerce.products;")
+    curr.close()
+    conn.close()
 
 def create_database():
     # Create database if it does not exist
@@ -33,32 +61,67 @@ def create_database():
         password=DB_PASSWORD,
         host=DB_HOST,
     )
-    conn.autocommit = True  # Set autocommit mode
+    conn.autocommit = True
     curr = conn.cursor()
+    
+    # Create database if not exists
     curr.execute(f"SELECT 1 FROM pg_catalog.pg_database WHERE datname = '{DB_NAME}'")
     if not curr.fetchone():
         curr.execute(f"CREATE DATABASE {DB_NAME}")
+    
     curr.close()
     conn.close()
 
+    # Connect to the new database and create schema/tables
+    conn = psycopg2.connect(
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+    )
+    curr = conn.cursor()
+    
+    # Create schema and tables
+    curr.execute("CREATE SCHEMA IF NOT EXISTS commerce;")
+    curr.execute("""
+        CREATE TABLE IF NOT EXISTS commerce.users (
+            id int PRIMARY KEY,
+            username VARCHAR(255) NOT NULL,
+            password VARCHAR(255) NOT NULL
+        );
+        
+        CREATE TABLE IF NOT EXISTS commerce.products (
+            id int PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            price REAL NOT NULL
+        );
+    """)
+    
+    conn.commit()
+    curr.close()
+    conn.close()
+
+    logging.info("Database created successfully")
 
 # Generate user data
 def gen_user_data(num_user_records: int) -> None:
-    for id in range(num_user_records):
+    logging.info("Generating user data...")  
+    for id in tqdm(range(num_user_records)):
         conn = psycopg2.connect(
             dbname=DB_NAME,
             user=DB_USER,
             password=DB_PASSWORD,
             host=DB_HOST,
-        )
+        )   
         curr = conn.cursor()
         curr.execute(
-            """INSERT INTO users
+            """INSERT INTO commerce.users
              (id, username, password) VALUES (%s, %s, %s)""",
             (id, fake.user_name(), fake.password()),
         )
         curr.execute(
-            """INSERT INTO products
+            """INSERT INTO commerce.products
              (id, name, description, price) VALUES (%s, %s, %s, %s)""",
             (id, fake.name(), fake.text(), fake.random_int(min=1, max=100)),
         )
@@ -76,6 +139,8 @@ def gen_user_data(num_user_records: int) -> None:
             )
         conn.commit()
         curr.close()
+        conn.close()
+    logging.info("User data generated successfully")
     return
 
 
@@ -94,6 +159,7 @@ def random_ip():
 
 # Generate a click event with the current datetime_occured
 def generate_click_event(user_id, product_id=None):
+    logging.info("Generating click event...")
     click_id = str(uuid4())
     product_id = product_id or str(uuid4())
     product = fake.word()
@@ -114,7 +180,7 @@ def generate_click_event(user_id, product_id=None):
         "ip_address": ip_address,
         "datetime_occured": datetime_occured.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
     }
-
+    
     return click_event
 
 
@@ -149,10 +215,12 @@ def push_to_kafka(event, topic):
     producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS})
     producer.produce(topic, json.dumps(event).encode("utf-8"))
     producer.flush()
+    logging.info(f"Pushed event to topic: {topic}")
 
 
 def gen_clickstream_data(num_click_records: int) -> None:
-    for _ in range(num_click_records):
+    logging.info("Generating clickstream data...")
+    for _ in tqdm(range(num_click_records)):
         user_id = random.randint(1, 100)
         click_event = generate_click_event(user_id)
         push_to_kafka(click_event, "clicks")
@@ -171,6 +239,8 @@ def gen_clickstream_data(num_click_records: int) -> None:
 
 
 if __name__ == "__main__":
+    truncate_database()
+    delete_database()
     create_database()
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -189,5 +259,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     gen_user_data(args.num_user_records)
-    gen_clickstream_data(args.num_click_records)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        executor.submit(gen_clickstream_data, args.num_click_records)
 
