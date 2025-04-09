@@ -4,7 +4,6 @@ import os
 import random
 from datetime import datetime
 from uuid import uuid4
-from tqdm import tqdm
 import psycopg2
 from confluent_kafka import Producer
 from dotenv import load_dotenv
@@ -25,33 +24,6 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 
 # Kafka environment variables
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
-
-def delete_database():
-    # Drop database if it exists
-    conn = psycopg2.connect(
-        dbname="postgres",
-        user=DB_USER,
-        password=DB_PASSWORD,
-        host=DB_HOST,
-    )
-    conn.autocommit = True
-    curr = conn.cursor()
-    curr.execute(f"DROP DATABASE IF EXISTS {DB_NAME}")
-    curr.close()
-    conn.close()
-
-def truncate_database():
-    # Truncate commerce.users and commerce.products tables
-    conn = psycopg2.connect(
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        host=DB_HOST,
-    )
-    curr = conn.cursor()
-    curr.execute("TRUNCATE commerce.users, commerce.products;")
-    curr.close()
-    conn.close()
 
 def create_database():
     # Create database if it does not exist
@@ -107,7 +79,7 @@ def create_database():
 # Generate user data
 def gen_user_data(num_user_records: int) -> None:
     logging.info("Generating user data...")  
-    for id in tqdm(range(num_user_records)):
+    for id in range(num_user_records):
         conn = psycopg2.connect(
             dbname=DB_NAME,
             user=DB_USER,
@@ -220,7 +192,7 @@ def push_to_kafka(event, topic):
 
 def gen_clickstream_data(num_click_records: int) -> None:
     logging.info("Generating clickstream data...")
-    for _ in tqdm(range(num_click_records)):
+    for _ in range(num_click_records):
         user_id = random.randint(1, 100)
         click_event = generate_click_event(user_id)
         push_to_kafka(click_event, "clicks")

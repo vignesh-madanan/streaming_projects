@@ -16,8 +16,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 # Kafka environment variables
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
-
-def delete_database():
+def drop_database():
     # Drop database if it exists
     conn = psycopg2.connect(
         dbname="postgres",
@@ -31,7 +30,7 @@ def delete_database():
     curr.close()
     conn.close()
 
-def truncate_database():
+def truncate_database(db_names: list[str]):
     # Truncate commerce.users and commerce.products tables
     conn = psycopg2.connect(
         dbname=DB_NAME,
@@ -40,10 +39,9 @@ def truncate_database():
         host=DB_HOST,
     )
     curr = conn.cursor()
-    curr.execute("TRUNCATE commerce.users, commerce.products;")
+    curr.execute("TRUNCATE {', '.join(db_names};")
     curr.close()
     conn.close()
-
 
 def flush_kafka_queue(topic_name):
     # Set up the admin client
@@ -77,5 +75,6 @@ def flush_kafka_queue(topic_name):
             print(f"Failed to reset config for {res.name}: {e}")
 
 if __name__ == "__main__":
+    truncate_database(["commerce.users", "commerce.products"])
     flush_kafka_queue("clicks")
     flush_kafka_queue("checkouts")
