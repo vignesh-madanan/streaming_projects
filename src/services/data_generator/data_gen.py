@@ -255,7 +255,7 @@ if __name__ == "__main__":
         "--num_click_records",
         type=int,
         help="Number of click records to generate",
-        default=1000,
+        default=100,
     )
     args = parser.parse_args()
     gen_user_data(args.num_user_records)
