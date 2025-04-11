@@ -2,4 +2,3 @@ Faker
 confluent-kafka
 psycopg2-binary
 python-dotenv
-tqdm
