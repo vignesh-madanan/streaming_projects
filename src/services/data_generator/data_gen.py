@@ -211,8 +211,6 @@ def gen_clickstream_data(num_click_records: int) -> None:
 
 
 if __name__ == "__main__":
-    truncate_database()
-    delete_database()
     create_database()
     parser = argparse.ArgumentParser()
     parser.add_argument(

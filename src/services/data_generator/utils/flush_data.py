@@ -43,7 +43,7 @@ def truncate_database(db_names: list[str]):
     curr.close()
     conn.close()
 
-def flush_kafka_queue(topic_name):
+def flush_kafka_queue(topic_name: str):
     # Set up the admin client
     admin_client = AdminClient({
         'bootstrap.servers': 'localhost:9092'
